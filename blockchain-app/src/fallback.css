@@ -1,0 +1,39 @@
+/* Estilos de respaldo mientras Tailwind se configura */
+.fallback-styles {
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.fallback-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.fallback-section {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.fallback-button {
+  background: linear-gradient(to right, #ec4899, #3b82f6);
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.fallback-button:hover {
+  transform: scale(1.05);
+}
+
+.fallback-button:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+  transform: none;
+}
