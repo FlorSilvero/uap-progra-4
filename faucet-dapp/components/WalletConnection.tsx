@@ -36,9 +36,12 @@ export function WalletConnection() {
   }
 
   const handleSignIn = async () => {
+    console.log('Iniciando proceso de autenticación...')
     const success = await signIn()
     if (!success) {
-      console.error('Sign in failed')
+      console.error('Error al iniciar sesión')
+    } else {
+      console.log('Autenticación exitosa')
     }
   }
 
@@ -53,15 +56,15 @@ export function WalletConnection() {
   if (!isConnected) {
     return (
       <div className="flex flex-col items-center gap-4 p-6 bg-white rounded-lg shadow-lg">
-        <h2 className="text-xl font-semibold text-gray-800">Connect Your Wallet</h2>
+        <h2 className="text-xl font-semibold text-gray-800">Conecta tu Wallet</h2>
         <p className="text-gray-600 text-center">
-          Connect your wallet to interact with the FaucetToken contract
+          Conecta tu wallet para interactuar con el contrato FaucetToken
         </p>
         <button
           onClick={handleConnect}
           className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
-          Connect Wallet
+          Conectar Wallet
         </button>
       </div>
     )
@@ -70,12 +73,12 @@ export function WalletConnection() {
   if (!isAuthenticated) {
     return (
       <div className="flex flex-col items-center gap-4 p-6 bg-white rounded-lg shadow-lg">
-        <h2 className="text-xl font-semibold text-gray-800">Sign In Required</h2>
+        <h2 className="text-xl font-semibold text-gray-800">Autenticación Requerida</h2>
         <p className="text-gray-600 text-center">
-          Connected as: <span className="font-mono">{truncateAddress(address || '')}</span>
+          Conectado como: <span className="font-mono">{truncateAddress(address || '')}</span>
         </p>
         <p className="text-gray-600 text-center">
-          Sign in with Ethereum to access the faucet
+          Inicia sesión con Ethereum para acceder al faucet
         </p>
         
         {error && (
@@ -90,13 +93,13 @@ export function WalletConnection() {
             disabled={isLoading}
             className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Signing In...' : 'Sign In with Ethereum'}
+            {isLoading ? 'Iniciando Sesión...' : 'Iniciar Sesión con Ethereum'}
           </button>
           <button
             onClick={handleDisconnect}
             className="px-6 py-3 bg-gray-600 text-white font-medium rounded-lg hover:bg-gray-700 transition-colors"
           >
-            Disconnect
+            Desconectar
           </button>
         </div>
       </div>
@@ -107,16 +110,16 @@ export function WalletConnection() {
     <div className="flex flex-col items-center gap-4 p-6 bg-green-50 rounded-lg border border-green-200">
       <div className="flex items-center gap-2">
         <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-        <span className="text-green-800 font-medium">Connected & Authenticated</span>
+        <span className="text-green-800 font-medium">Conectado y Autenticado</span>
       </div>
       <p className="text-gray-700">
-        Address: <span className="font-mono">{truncateAddress(address || '')}</span>
+        Dirección: <span className="font-mono">{truncateAddress(address || '')}</span>
       </p>
       <button
         onClick={handleDisconnect}
         className="px-4 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
       >
-        Disconnect
+        Desconectar
       </button>
     </div>
   )

@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     
     if (hasClaimed) {
       return NextResponse.json(
-        { error: 'Address has already claimed tokens' },
+        { error: 'La dirección ya reclamó tokens' },
         { status: 400 }
       )
     }
@@ -53,21 +53,21 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error) {
       if (error.message.includes('Address has already claimed')) {
         return NextResponse.json(
-          { error: 'Address has already claimed tokens' },
+          { error: 'La dirección ya reclamó tokens' },
           { status: 400 }
         )
       }
       
       if (error.message.includes('insufficient funds')) {
         return NextResponse.json(
-          { error: 'Insufficient gas fees in backend wallet' },
+          { error: 'Fondos insuficientes para gas en la wallet del backend' },
           { status: 500 }
         )
       }
     }
 
     return NextResponse.json(
-      { error: 'Failed to claim tokens' },
+      { error: 'Error al reclamar tokens' },
       { status: 500 }
     )
   }

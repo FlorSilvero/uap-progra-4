@@ -21,7 +21,7 @@ export async function GET(
 
     if (!address || !ethers.isAddress(address)) {
       return NextResponse.json(
-        { error: 'Valid address is required' },
+        { error: 'Se requiere una dirección válida' },
         { status: 400 }
       )
     }
@@ -49,7 +49,7 @@ export async function GET(
   } catch (error) {
     console.error('Error getting faucet status:', error)
     return NextResponse.json(
-      { error: 'Failed to get faucet status' },
+      { error: 'Error al obtener el estado del faucet' },
       { status: 500 }
     )
   }

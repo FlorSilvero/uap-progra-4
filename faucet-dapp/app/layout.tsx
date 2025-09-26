@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "FaucetToken dApp",
-  description: "A decentralized faucet application for claiming tokens on Ethereum Sepolia",
+  description: "Una aplicación descentralizada para reclamar tokens gratuitos en la testnet Ethereum Sepolia",
 };
 
 export default function RootLayout({

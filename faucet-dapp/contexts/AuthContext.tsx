@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (): Promise<boolean> => {
     if (!address) {
-      setError('Wallet not connected')
+      setError('Wallet no conectada')
       return false
     }
 
@@ -57,41 +57,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null)
 
     try {
-      // Get message to sign
+      console.log('Obteniendo nonce para firmar...')
+      // Get nonce from backend
       const messageResponse = await apiService.getMessage(address)
+      console.log('Respuesta completa de getMessage:', JSON.stringify(messageResponse, null, 2))
       
       if (!messageResponse.success || !messageResponse.data) {
-        throw new Error(messageResponse.error || 'Failed to get message')
+        console.error('Error obteniendo nonce:', messageResponse.error)
+        throw new Error(messageResponse.error || 'Error al obtener nonce')
       }
 
-      const { message, nonce } = messageResponse.data
+      console.log('Datos de la respuesta:', JSON.stringify(messageResponse.data, null, 2))
+      const { nonce } = messageResponse.data
+      console.log('Nonce extraído:', nonce, 'tipo:', typeof nonce)
 
-      // Create SIWE message
-      const siweMessage = new SiweMessage({
-        domain: window.location.host,
-        address,
-        statement: 'Sign in to FaucetToken dApp',
-        uri: window.location.origin,
-        version: '1',
-        chainId: 11155111, // Sepolia
-        nonce,
-      })
+      console.log('Usando constructor básico de SiweMessage...')
 
-      const messageToSign = siweMessage.prepareMessage()
+      // Try using the basic constructor approach
+      const domain = window.location.host
+      const origin = window.location.origin
+      const statement = 'Sign in with Ethereum to the app.'
+      let messageToSign = ''
+      
+      try {
+        // Create message text manually but in the exact format
+        messageToSign = `${domain} wants you to sign in with your Ethereum account:
+${address}
+
+${statement}
+
+URI: ${origin}
+Version: 1
+Chain ID: 11155111
+Nonce: ${nonce}
+Issued At: ${new Date().toISOString()}`
+
+        console.log('Mensaje para firmar:')
+        console.log(messageToSign)
+        console.log('Intentando crear SiweMessage para validar...')
+        
+        // Try to create SiweMessage just for validation
+        const siweMessage = new SiweMessage(messageToSign)
+        console.log('SiweMessage creado exitosamente para validación')
+      } catch (validationError) {
+        console.warn('Error en validación, usando mensaje de respaldo:', validationError)
+        // Continue with the message even if validation fails
+        messageToSign = `Please sign this message to authenticate with your Ethereum account:
+Address: ${address}
+Domain: ${domain}
+Nonce: ${nonce}
+Time: ${new Date().toISOString()}`
+        
+        console.log('Usando mensaje de respaldo:', messageToSign)
+      }
+      console.log('SIWE message preparado para firmar:', messageToSign)
+      console.log('Solicitando firma del usuario...')
 
       // Sign message
       const signature = await signMessageAsync({
         message: messageToSign,
       })
 
+      console.log('Mensaje firmado, enviando al backend...')
+
       // Send to backend for verification
       const authResponse = await apiService.signin(messageToSign, signature)
 
       if (!authResponse.success || !authResponse.data) {
-        throw new Error(authResponse.error || 'Authentication failed')
+        console.error('Error de autenticación del backend:', authResponse.error)
+        throw new Error(authResponse.error || 'Falló la autenticación')
       }
 
       const { token, address: authAddress } = authResponse.data
+      console.log('Autenticación exitosa, guardando token...')
 
       // Update state
       setAuthState({
@@ -109,7 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return true
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Authentication failed'
+      console.error('Error detallado de autenticación:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Falló la autenticación'
+      console.error('Mensaje de error:', errorMessage)
+      if (err instanceof Error) {
+        console.error('Stack trace:', err.stack)
+      }
       setError(errorMessage)
       return false
     } finally {

@@ -28,7 +28,7 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthPay
 
 export function createAuthErrorResponse() {
   return NextResponse.json(
-    { error: 'Authentication required' },
+    { error: 'Autenticación requerida' },
     { status: 401 }
   )
 }
