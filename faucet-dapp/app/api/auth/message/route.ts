@@ -28,8 +28,26 @@ export async function POST(request: NextRequest) {
       console.log('Nonce expired and deleted for:', address)
     }, 10 * 60 * 1000)
 
-    console.log('Returning nonce successfully')
+    // Generate complete SIWE message following EIP-4361
+    const domain = 'localhost:3000' // In production, use process.env.DOMAIN
+    const origin = 'http://localhost:3000' // In production, use process.env.ORIGIN
+    const statement = 'Sign in with Ethereum to the app.'
+    const issuedAt = new Date().toISOString()
+
+    const message = `${domain} wants you to sign in with your Ethereum account:
+${address}
+
+${statement}
+
+URI: ${origin}
+Version: 1
+Chain ID: 11155111
+Nonce: ${nonce}
+Issued At: ${issuedAt}`
+
+    console.log('Generated complete SIWE message')
     return NextResponse.json({
+      message,
       nonce,
     })
   } catch (error) {

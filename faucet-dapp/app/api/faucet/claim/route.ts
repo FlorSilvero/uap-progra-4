@@ -38,8 +38,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Call claimTokens for the authenticated user
-    const tx = await contract.claimTokens()
+    // Use mint() as owner to mint tokens to the user's address
+    // This assumes the backend wallet is the owner of the contract
+    const faucetAmount = ethers.parseEther("100") // 100 tokens
+    const tx = await contract.mint(address, faucetAmount)
     await tx.wait()
 
     return NextResponse.json({

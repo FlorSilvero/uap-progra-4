@@ -28,5 +28,6 @@ export interface AuthResponse {
 }
 
 export interface MessageResponse {
+  message: string
   nonce: string
 }

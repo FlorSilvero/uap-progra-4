@@ -3,7 +3,11 @@ import { SiweMessage } from 'siwe'
 import jwt from 'jsonwebtoken'
 import { nonces } from '../message/route'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret'
+const JWT_SECRET = process.env.JWT_SECRET
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required')
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,7 +67,7 @@ export async function POST(request: NextRequest) {
         address: siweMessage.address,
         chainId: siweMessage.chainId,
       },
-      JWT_SECRET,
+      JWT_SECRET!,
       { 
         expiresIn: '24h',
         subject: siweMessage.address,

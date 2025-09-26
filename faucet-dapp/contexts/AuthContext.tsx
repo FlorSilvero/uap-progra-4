@@ -57,59 +57,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null)
 
     try {
-      console.log('Obteniendo nonce para firmar...')
-      // Get nonce from backend
+      console.log('Obteniendo mensaje SIWE del backend...')
+      // Get complete SIWE message from backend
       const messageResponse = await apiService.getMessage(address)
       console.log('Respuesta completa de getMessage:', JSON.stringify(messageResponse, null, 2))
       
       if (!messageResponse.success || !messageResponse.data) {
-        console.error('Error obteniendo nonce:', messageResponse.error)
-        throw new Error(messageResponse.error || 'Error al obtener nonce')
+        console.error('Error obteniendo mensaje:', messageResponse.error)
+        throw new Error(messageResponse.error || 'Error al obtener mensaje')
       }
 
       console.log('Datos de la respuesta:', JSON.stringify(messageResponse.data, null, 2))
-      const { nonce } = messageResponse.data
-      console.log('Nonce extraído:', nonce, 'tipo:', typeof nonce)
-
-      console.log('Usando constructor básico de SiweMessage...')
-
-      // Try using the basic constructor approach
-      const domain = window.location.host
-      const origin = window.location.origin
-      const statement = 'Sign in with Ethereum to the app.'
-      let messageToSign = ''
+      const { message, nonce } = messageResponse.data
+      console.log('Mensaje SIWE recibido del backend:', message)
+      console.log('Nonce:', nonce)
       
-      try {
-        // Create message text manually but in the exact format
-        messageToSign = `${domain} wants you to sign in with your Ethereum account:
-${address}
-
-${statement}
-
-URI: ${origin}
-Version: 1
-Chain ID: 11155111
-Nonce: ${nonce}
-Issued At: ${new Date().toISOString()}`
-
-        console.log('Mensaje para firmar:')
-        console.log(messageToSign)
-        console.log('Intentando crear SiweMessage para validar...')
-        
-        // Try to create SiweMessage just for validation
-        const siweMessage = new SiweMessage(messageToSign)
-        console.log('SiweMessage creado exitosamente para validación')
-      } catch (validationError) {
-        console.warn('Error en validación, usando mensaje de respaldo:', validationError)
-        // Continue with the message even if validation fails
-        messageToSign = `Please sign this message to authenticate with your Ethereum account:
-Address: ${address}
-Domain: ${domain}
-Nonce: ${nonce}
-Time: ${new Date().toISOString()}`
-        
-        console.log('Usando mensaje de respaldo:', messageToSign)
-      }
+      // Use the message directly from backend (no client-side generation needed)
+      const messageToSign = message
       console.log('SIWE message preparado para firmar:', messageToSign)
       console.log('Solicitando firma del usuario...')
 
