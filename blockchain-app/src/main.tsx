@@ -5,7 +5,7 @@ import { WagmiProvider, createConfig, http } from "wagmi";
 import { sepolia } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createWeb3Modal } from "@web3modal/wagmi/react";
-import { metaMask, injected } from "wagmi/connectors";
+import { metaMask, injected, walletConnect } from "wagmi/connectors";
 import "./index.css"; // Tailwind
 import "./fallback.css"; // Fallback styles
 
@@ -20,8 +20,24 @@ if (!projectId) {
 const wagmiConfig = createConfig({
   chains: [sepolia],
   connectors: [
+    // 1. MetaMask (prioridad alta)
     metaMask(),
-    injected(),
+    
+    // 2. WalletConnect (para wallets móviles y más opciones)
+    walletConnect({
+      projectId,
+      metadata: {
+        name: 'Token Faucet',
+        description: 'Faucet de tokens gratuitos para Sepolia',
+        url: typeof window !== 'undefined' ? window.location.origin : '',
+        icons: ['https://walletconnect.com/walletconnect-logo.png']
+      }
+    }),
+    
+    // 3. Injected (fallback para otros wallets)
+    injected({
+      shimDisconnect: true,
+    }),
   ],
   transports: {
     [sepolia.id]: http(sepoliaRpcUrl || "https://ethereum-sepolia-rpc.publicnode.com"),

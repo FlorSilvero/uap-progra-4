@@ -1,5 +1,6 @@
-import { useAccount, useChainId, useConnect, useDisconnect } from "wagmi";
+import { useAccount, useChainId, useConnect, useDisconnect, useConnectors, useSwitchChain } from "wagmi";
 import { metaMask } from "wagmi/connectors";
+import { sepolia } from "wagmi/chains";
 
 const SEPOLIA_ID = 11155111;
 
@@ -8,53 +9,137 @@ export default function WalletStatus() {
   const chainId = useChainId();
   const { connect, error: connectError, isPending } = useConnect();
   const { disconnect } = useDisconnect();
+  const connectors = useConnectors();
+  const { switchChain, isPending: isSwitching, error: switchError } = useSwitchChain();
 
   const wrongNetwork = isConnected && chainId !== SEPOLIA_ID;
 
-  const handleConnect = async () => {
-    console.log('=== DEBUG INFO ===');
-    console.log('Botón clickeado!', { isConnected });
-    console.log('window.ethereum exists?', typeof window.ethereum !== 'undefined');
-    console.log('window.ethereum:', window.ethereum);
-    console.log('window.ethereum.isMetaMask?', window.ethereum?.isMetaMask);
-    console.log('hasMetaMask calculated:', hasMetaMask);
-    console.log('Multiple providers?', window.ethereum?.providers);
-    console.log('==================');
+  // Función para cambiar a la red Sepolia
+  const handleSwitchToSepolia = async () => {
+    try {
+      await switchChain({ chainId: sepolia.id });
+    } catch (error: any) {
+      console.error('Error switching to Sepolia:', error);
+      
+      // Manejar errores específicos
+      if (error.code === 4902 || error.message?.includes('Unrecognized chain ID')) {
+        // La red no está agregada, intentar agregarla
+        try {
+          if (window.ethereum) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: '0xaa36a7', // Sepolia en hexadecimal
+                chainName: 'Sepolia test network',
+                rpcUrls: ['https://sepolia.infura.io/v3/'],
+                blockExplorerUrls: ['https://sepolia.etherscan.io'],
+                nativeCurrency: {
+                  name: 'SepoliaETH',
+                  symbol: 'ETH',
+                  decimals: 18,
+                },
+              }],
+            });
+          }
+        } catch (addError: any) {
+          alert(`Error agregando la red Sepolia: ${addError.message || 'Error desconocido'}`);
+        }
+      } else if (error.code === 4001) {
+        // Usuario rechazó el cambio de red
+        return;
+      } else {
+        alert(`Error cambiando a Sepolia: ${error.message || 'Error desconocido'}`);
+      }
+    }
+  };
+
+  // Función para obtener el mejor conector disponible
+  const getBestConnector = () => {
+    // 1. Priorizar MetaMask si está disponible
+    const metaMaskConnector = connectors.find(
+      (connector) => connector.name?.toLowerCase().includes('metamask')
+    );
     
+    if (metaMaskConnector) {
+      return { connector: metaMaskConnector, type: 'MetaMask' };
+    }
+
+    // 2. Buscar WalletConnect si está disponible
+    const walletConnectConnector = connectors.find(
+      (connector) => connector.name?.toLowerCase().includes('walletconnect')
+    );
+    
+    if (walletConnectConnector) {
+      return { connector: walletConnectConnector, type: 'WalletConnect' };
+    }
+
+    // 3. Fallback a injected (para otros wallets como Brave, etc.)
+    const injectedConnector = connectors.find(
+      (connector) => connector.name?.toLowerCase().includes('injected')
+    );
+    
+    if (injectedConnector) {
+      return { connector: injectedConnector, type: 'Injected' };
+    }
+
+    // 4. Si hay al menos un conector disponible, usar el primero
+    if (connectors.length > 0) {
+      return { connector: connectors[0], type: connectors[0].name || 'Unknown' };
+    }
+
+    // 5. Como último recurso, crear nuevo conector MetaMask
+    return { connector: metaMask(), type: 'MetaMask (fallback)' };
+  };
+
+  const handleConnect = async () => {
     if (isConnected) {
-      console.log('Desconectando...');
       disconnect();
       return;
     }
     
-    console.log('Conectando...');
-    
-    // Verificación más específica
+    // Verificar si hay un proveedor Ethereum disponible
     if (typeof window.ethereum === 'undefined') {
       alert('No se detectó ninguna wallet. Por favor instala MetaMask: https://metamask.io/');
       return;
     }
     
-    if (!window.ethereum.isMetaMask && !window.ethereum.providers?.some((p: any) => p.isMetaMask)) {
-      alert('MetaMask no detectado. Asegúrate de tenerlo instalado y habilitado.');
-      return;
-    }
-    
     try {
-      console.log('Intentando conectar con metaMask()...');
-      await connect({ connector: metaMask() });
+      const { connector, type } = getBestConnector();
+      
+      console.log(`Conectando usando: ${type}`, { 
+        connector: connector.name, 
+        availableConnectors: connectors.map(c => ({ name: c.name }))
+      });
+      
+      await connect({ connector });
+      
       console.log('¡Conexión exitosa!');
     } catch (error: any) {
       console.error('Error al conectar:', error);
-      alert(`Error de conexión: ${error.message || error.toString()}`);
+      
+      // Mejorar el manejo de errores
+      if (error.message?.includes('User rejected')) {
+        // Usuario canceló la conexión - no mostrar error
+        return;
+      }
+      
+      if (error.message?.includes('No connector provided')) {
+        alert('Error: No se pudo encontrar un conector de wallet válido. Asegúrate de tener MetaMask instalado.');
+        return;
+      }
+      
+      alert(`Error de conexión: ${error.message || 'Error desconocido'}`);
     }
   };
 
-  console.log('WalletStatus render:', { status, isConnected, address, connectError });
-
+  // Verificar disponibilidad de wallets con mejor detección
   const hasMetaMask = typeof window !== 'undefined' && 
     typeof window.ethereum !== 'undefined' && 
-    (window.ethereum.isMetaMask || window.ethereum.providers?.some((p: any) => p.isMetaMask));
+    (window.ethereum.isMetaMask || 
+     window.ethereum.providers?.some((p: any) => p.isMetaMask) ||
+     connectors.some(c => c.name?.toLowerCase().includes('metamask')));
+     
+  const hasConnectors = connectors.length > 0;
 
   return (
     <section className="p-6 bg-white/80 dark:bg-zinc-900/80 rounded-3xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-xl backdrop-blur-sm">
@@ -130,9 +215,35 @@ export default function WalletStatus() {
                   {address}
                 </div>
                 {wrongNetwork && (
-                  <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 p-2 rounded">
-                    <span>⚠️</span>
-                    <span className="text-xs">Necesitas cambiar a la red Sepolia en MetaMask</span>
+                  <div className="space-y-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                    <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                      <span>⚠️</span>
+                      <span className="text-sm font-medium">Red incorrecta</span>
+                    </div>
+                    <p className="text-xs text-red-600 dark:text-red-400">
+                      Estás conectado a una red diferente. Esta aplicación requiere la red Sepolia.
+                    </p>
+                    <button
+                      onClick={handleSwitchToSepolia}
+                      disabled={isSwitching}
+                      className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-sm rounded-lg font-medium transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {isSwitching ? (
+                        <>
+                          <span className="animate-spin">⏳</span>
+                          Cambiando red...
+                        </>
+                      ) : (
+                        <>
+                          🔄 Cambiar a Sepolia
+                        </>
+                      )}
+                    </button>
+                    {switchError && (
+                      <div className="text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/40 p-2 rounded">
+                        Error: {switchError.message}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -140,15 +251,26 @@ export default function WalletStatus() {
           </div>
         </div>
         <div className="flex flex-col gap-3">
-          {!hasMetaMask ? (
-            <a
-              href="https://metamask.io/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-semibold transition-all hover:scale-105 text-center"
-            >
-              📥 Instalar MetaMask
-            </a>
+          {!hasMetaMask && typeof window.ethereum === 'undefined' ? (
+            <div className="flex flex-col gap-2">
+              <a
+                href="https://metamask.io/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-semibold transition-all hover:scale-105 text-center"
+              >
+                🦊 Instalar MetaMask
+              </a>
+              {hasConnectors && (
+                <button
+                  onClick={handleConnect}
+                  disabled={isPending}
+                  className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold transition-all hover:scale-105"
+                >
+                  📱 Otras Wallets (WalletConnect)
+                </button>
+              )}
+            </div>
           ) : (
             <button
               onClick={handleConnect}
@@ -165,7 +287,9 @@ export default function WalletStatus() {
                 ? "🔄 Conectando..." 
                 : isConnected 
                 ? "🔓 Desconectar" 
-                : "🦊 Conectar MetaMask"
+                : hasMetaMask
+                ? "🦊 Conectar MetaMask"
+                : "💼 Conectar Wallet"
               }
             </button>
           )}
