@@ -38,10 +38,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Use mint() as owner to mint tokens to the user's address
-    // This assumes the backend wallet is the owner of the contract
-    const faucetAmount = ethers.parseEther("100") // 100 tokens
-    const tx = await contract.mint(address, faucetAmount)
+    // Use claimTokens() function from the faucet contract
+    const tx = await contract.claimTokens()
     await tx.wait()
 
     return NextResponse.json({
@@ -53,16 +51,32 @@ export async function POST(request: NextRequest) {
     
     // Handle specific contract errors
     if (error instanceof Error) {
-      if (error.message.includes('Address has already claimed')) {
+      const errorMessage = error.message.toLowerCase()
+      
+      if (errorMessage.includes('already claimed') || errorMessage.includes('address has already claimed')) {
         return NextResponse.json(
           { error: 'La dirección ya reclamó tokens' },
           { status: 400 }
         )
       }
       
-      if (error.message.includes('insufficient funds')) {
+      if (errorMessage.includes('insufficient funds') || errorMessage.includes('insufficient balance')) {
         return NextResponse.json(
           { error: 'Fondos insuficientes para gas en la wallet del backend' },
+          { status: 500 }
+        )
+      }
+      
+      if (errorMessage.includes('execution reverted')) {
+        return NextResponse.json(
+          { error: 'La transacción fue revertida. Verifica que puedas reclamar tokens.' },
+          { status: 400 }
+        )
+      }
+      
+      if (errorMessage.includes('nonce too low') || errorMessage.includes('nonce')) {
+        return NextResponse.json(
+          { error: 'Error de nonce. Intenta nuevamente.' },
           { status: 500 }
         )
       }

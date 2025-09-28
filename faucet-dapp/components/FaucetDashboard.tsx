@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAccount } from 'wagmi'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiService } from '@/lib/api'
+import { claimRateLimiter } from '@/lib/rateLimiter'
 import { formatTokenAmount, formatNumber, truncateAddress, copyToClipboard } from '@/lib/utils'
 import { FaucetStatus } from '@/types'
 
@@ -44,6 +45,15 @@ export function FaucetDashboard() {
   }, [isAuthenticated, address, loadFaucetStatus])
 
   const handleClaimTokens = async () => {
+    if (!address) return
+
+    // Check rate limiting
+    if (!claimRateLimiter.canMakeRequest(address)) {
+      const remainingTime = Math.ceil(claimRateLimiter.getRemainingTime(address) / 1000)
+      setError(`Espera ${remainingTime} segundos antes de intentar reclamar nuevamente.`)
+      return
+    }
+
     setIsClaiming(true)
     setError(null)
     setSuccess(null)

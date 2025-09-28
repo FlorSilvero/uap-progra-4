@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SiweMessage } from 'siwe'
 import jwt from 'jsonwebtoken'
-import { nonces } from '../message/route'
+import { getValidNonce } from '../message/route'
+import { CONFIG, MESSAGES } from '@/lib/constants'
 
 const JWT_SECRET = process.env.JWT_SECRET
 
@@ -43,11 +44,34 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate Chain ID (Sepolia testnet)
+    if (siweMessage.chainId && siweMessage.chainId !== CONFIG.CHAIN_ID) {
+      console.error('Invalid chain ID:', siweMessage.chainId)
+      return NextResponse.json(
+        { error: MESSAGES.ERRORS.INVALID_CHAIN_ID },
+        { status: 400 }
+      )
+    }
+
+    // Validate message expiration
+    if (siweMessage.issuedAt) {
+      const issuedAt = new Date(siweMessage.issuedAt)
+      const now = new Date()
+      
+      if (now.getTime() - issuedAt.getTime() > CONFIG.MESSAGE_EXPIRY_MS) {
+        console.error('Message expired')
+        return NextResponse.json(
+          { error: MESSAGES.ERRORS.MESSAGE_EXPIRED },
+          { status: 401 }
+        )
+      }
+    }
+
     const address = siweMessage.address.toLowerCase()
     console.log('Processing for address:', address)
 
     // Verify nonce (optional but recommended)
-    const storedNonce = nonces.get(address)
+    const storedNonce = getValidNonce(address)
     console.log('Stored nonce:', storedNonce, 'Message nonce:', siweMessage.nonce)
     if (storedNonce && siweMessage.nonce !== storedNonce) {
       console.error('Nonce mismatch')
@@ -57,19 +81,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Clean up used nonce
-    nonces.delete(address)
-    console.log('Nonce cleaned up, generating JWT...')
+    console.log('Nonce validated, generating JWT...')
 
     // Generate JWT token
     const token = jwt.sign(
       { 
         address: siweMessage.address,
-        chainId: siweMessage.chainId,
+        chainId: siweMessage.chainId || CONFIG.CHAIN_ID,
       },
       JWT_SECRET!,
       { 
-        expiresIn: '24h',
+        expiresIn: CONFIG.JWT_EXPIRY,
         subject: siweMessage.address,
       }
     )

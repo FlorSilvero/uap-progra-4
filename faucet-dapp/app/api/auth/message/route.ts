@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateNonce } from 'siwe'
+import { CONFIG, MESSAGES } from '@/lib/constants'
 
 // Store nonces temporarily (in production, use Redis or database)
-const nonces = new Map<string, string>()
+const nonces = new Map<string, { nonce: string; expires: number }>()
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,17 +22,24 @@ export async function POST(request: NextRequest) {
     const nonce = generateNonce()
     console.log('Generated nonce:', nonce, 'for address:', address)
     
-    // Store nonce for this address (expires in 10 minutes)
-    nonces.set(address.toLowerCase(), nonce)
+    // Store nonce for this address with expiration
+    const expires = Date.now() + CONFIG.NONCE_EXPIRY_MS
+    nonces.set(address.toLowerCase(), { nonce, expires })
+    
+    // Clean up expired nonces
     setTimeout(() => {
-      nonces.delete(address.toLowerCase())
-      console.log('Nonce expired and deleted for:', address)
-    }, 10 * 60 * 1000)
+      const addressKey = address.toLowerCase()
+      const storedNonce = nonces.get(addressKey)
+      if (storedNonce && Date.now() >= storedNonce.expires) {
+        nonces.delete(addressKey)
+        console.log('Nonce expired and deleted for:', address)
+      }
+    }, CONFIG.NONCE_EXPIRY_MS)
 
     // Generate complete SIWE message following EIP-4361
-    const domain = 'localhost:3000' // In production, use process.env.DOMAIN
-    const origin = 'http://localhost:3000' // In production, use process.env.ORIGIN
-    const statement = 'Sign in with Ethereum to the app.'
+    const domain = process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000'
+    const origin = process.env.NEXT_PUBLIC_ORIGIN || 'http://localhost:3000'
+    const statement = MESSAGES.INFO.SIGN_MESSAGE
     const issuedAt = new Date().toISOString()
 
     const message = `${domain} wants you to sign in with your Ethereum account:
@@ -41,7 +49,7 @@ ${statement}
 
 URI: ${origin}
 Version: 1
-Chain ID: 11155111
+Chain ID: ${CONFIG.CHAIN_ID}
 Nonce: ${nonce}
 Issued At: ${issuedAt}`
 
@@ -64,3 +72,16 @@ Issued At: ${issuedAt}`
 }
 
 export { nonces }
+
+// Helper function to get valid nonce
+export function getValidNonce(address: string): string | null {
+  const addressKey = address.toLowerCase()
+  const storedNonce = nonces.get(addressKey)
+  
+  if (!storedNonce || Date.now() >= storedNonce.expires) {
+    nonces.delete(addressKey)
+    return null
+  }
+  
+  return storedNonce.nonce
+}

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useAccount, useSignMessage } from 'wagmi'
 import { SiweMessage } from 'siwe'
 import { apiService } from '@/lib/api'
+import { authRateLimiter } from '@/lib/rateLimiter'
 import { AuthState } from '@/types'
 
 interface AuthContextType extends AuthState {
@@ -50,6 +51,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (): Promise<boolean> => {
     if (!address) {
       setError('Wallet no conectada')
+      return false
+    }
+
+    // Check rate limiting
+    if (!authRateLimiter.canMakeRequest(address)) {
+      const remainingTime = Math.ceil(authRateLimiter.getRemainingTime(address) / 1000)
+      setError(`Demasiados intentos. Espera ${remainingTime} segundos antes de intentar nuevamente.`)
       return false
     }
 

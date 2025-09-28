@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret'
+const JWT_SECRET = process.env.JWT_SECRET
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required')
+}
 
 export interface AuthPayload {
   address: string
@@ -17,9 +21,17 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthPay
     }
 
     const token = authHeader.substring(7)
-    const payload = jwt.verify(token, JWT_SECRET) as AuthPayload
+    const payload = jwt.verify(token, JWT_SECRET!) as jwt.JwtPayload & AuthPayload
 
-    return payload
+    // Validate payload structure
+    if (!payload.address || typeof payload.address !== 'string') {
+      return null
+    }
+
+    return {
+      address: payload.address,
+      chainId: payload.chainId || 11155111
+    }
   } catch (error) {
     console.error('Authentication error:', error)
     return null
