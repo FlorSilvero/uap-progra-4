@@ -162,10 +162,3 @@ app/api/
 - [Wagmi Documentation](https://wagmi.sh/)
 - [SIWE Documentation](https://docs.login.xyz/)
 
-## 🤝 Contribuciones
-
-Este es un proyecto educativo. Las contribuciones son bienvenidas para mejorar la funcionalidad y agregar nuevas características.
-
-## 📝 Licencia
-
-MIT License - ver archivo LICENSE para más detalles.
