@@ -154,11 +154,4 @@ app/api/
 - Revisa que todas las variables de entorno estén configuradas
 - Verifica el NEXT_PUBLIC_PROJECT_ID de WalletConnect
 
-## 📚 Recursos Adicionales
-
-- [Contrato en Sepolia Etherscan](https://sepolia.etherscan.io/address/0x3e2117c19a921507ead57494bbf29032f33c7412#code)
-- [Faucet ETH Sepolia](https://cloud.google.com/application/web3/faucet/ethereum/sepolia)
-- [WalletConnect Cloud](https://cloud.walletconnect.com)
-- [Wagmi Documentation](https://wagmi.sh/)
-- [SIWE Documentation](https://docs.login.xyz/)
 
