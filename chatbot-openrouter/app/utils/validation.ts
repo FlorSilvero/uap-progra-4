@@ -128,7 +128,7 @@ export function validateConversation(messageCount: number): { valid: boolean; er
  * Rate limiting simple - limita mensajes por ventana de tiempo
  * Almacena timestamps en sessionStorage
  */
-export function checkRateLimit(): { allowed: boolean; error?: string } {
+export function checkRateLimit(): { allowed: boolean; remaining: number; error?: string } {
   const RATE_LIMIT_KEY = "chat-rate-limit";
   const MAX_MESSAGES_PER_MINUTE = 10;
   const TIME_WINDOW_MS = 60 * 1000; // 1 minuto
@@ -146,6 +146,7 @@ export function checkRateLimit(): { allowed: boolean; error?: string } {
     if (recentTimestamps.length >= MAX_MESSAGES_PER_MINUTE) {
       return {
         allowed: false,
+        remaining: 0,
         error: `Has enviado demasiados mensajes. Por favor, espera un momento antes de enviar otro.`
       };
     }
@@ -154,11 +155,37 @@ export function checkRateLimit(): { allowed: boolean; error?: string } {
     recentTimestamps.push(now);
     sessionStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(recentTimestamps));
     
-    return { allowed: true };
+    return { 
+      allowed: true,
+      remaining: MAX_MESSAGES_PER_MINUTE - recentTimestamps.length
+    };
   } catch (error) {
     // Si falla el storage, permitir el mensaje
     console.warn("Rate limit check failed:", error);
-    return { allowed: true };
+    return { allowed: true, remaining: MAX_MESSAGES_PER_MINUTE };
+  }
+}
+
+/**
+ * Obtiene el estado actual del rate limit sin incrementar el contador
+ */
+export function getRateLimitStatus(): { remaining: number; total: number } {
+  const RATE_LIMIT_KEY = "chat-rate-limit";
+  const MAX_MESSAGES_PER_MINUTE = 10;
+  const TIME_WINDOW_MS = 60 * 1000;
+  
+  try {
+    const stored = sessionStorage.getItem(RATE_LIMIT_KEY);
+    const timestamps: number[] = stored ? JSON.parse(stored) : [];
+    const now = Date.now();
+    const recentTimestamps = timestamps.filter(ts => now - ts < TIME_WINDOW_MS);
+    
+    return {
+      remaining: Math.max(0, MAX_MESSAGES_PER_MINUTE - recentTimestamps.length),
+      total: MAX_MESSAGES_PER_MINUTE
+    };
+  } catch (error) {
+    return { remaining: MAX_MESSAGES_PER_MINUTE, total: MAX_MESSAGES_PER_MINUTE };
   }
 }
 

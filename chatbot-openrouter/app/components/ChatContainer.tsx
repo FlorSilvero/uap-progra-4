@@ -5,6 +5,7 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { TypingIndicator } from "./TypingIndicator";
 import { ErrorMessage } from "./ErrorMessage";
+import { RateLimitIndicator } from "./RateLimitIndicator";
 import { validateConversation, sanitizeInput, validateInput } from "../utils/validation";
 import { Trash2, MessageSquare } from "lucide-react";
 
@@ -260,16 +261,20 @@ export function ChatContainer() {
           </div>
         </div>
         
-        {messages.length > 0 && (
-          <button
-            onClick={clearConversation}
-            className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-            title="Limpiar conversación"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span className="text-sm">Limpiar</span>
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          <RateLimitIndicator />
+          
+          {messages.length > 0 && (
+            <button
+              onClick={clearConversation}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+              title="Limpiar conversación"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="text-sm">Limpiar</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages Area */}
