@@ -1,0 +1,43 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider = "postgresql"          // decís que usás PostgreSQL
+  url      = env("DATABASE_URL")   // lee la conexión de tu .env
+}
+
+generator client {
+  provider = "prisma-client-js"    // genera el cliente JS para usar en tu código
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  completed Boolean  @default(false)
+  priority  Priority @default(medium)
+  category  Category @default(other)
+  dueDate   DateTime?
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, deletedAt])
+  @@index([userId, completed, priority])
+  @@index([userId, dueDate])
+  @@index([userId, category])
+  @@index([title])
+}
+
+enum Priority {
+  low
+  medium
+  high
+}
+
+enum Category {
+  work
+  personal
+  shopping
+  health
+  other
+}
