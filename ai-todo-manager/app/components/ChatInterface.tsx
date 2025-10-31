@@ -7,6 +7,15 @@ import { Send, Loader2 } from 'lucide-react';
 export default function ChatInterface() {
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     api: '/api/chat',
+    onResponse: (response) => {
+      console.log('📥 Respuesta recibida:', response);
+    },
+    onFinish: (message) => {
+      console.log('✅ Mensaje finalizado:', message);
+    },
+    onError: (error) => {
+      console.error('❌ Error:', error);
+    }
   });
 
   return (
@@ -38,12 +47,20 @@ export default function ChatInterface() {
                 text="Muéstrame todas mis tareas"
               />
               <SuggestionCard 
+                emoji="✅"
+                text="Completar tarea 1"
+              />
+              <SuggestionCard 
+                emoji="🗑️"
+                text="Eliminar tarea 2"
+              />
+              <SuggestionCard 
                 emoji="📊"
                 text="¿Cuántas tareas he completado?"
               />
               <SuggestionCard 
-                emoji="⚡"
-                text="Tareas de alta prioridad"
+                emoji="⏳"
+                text="Mostrar tareas pendientes"
               />
             </div>
           </div>
