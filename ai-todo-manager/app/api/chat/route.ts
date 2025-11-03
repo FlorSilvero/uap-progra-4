@@ -419,26 +419,28 @@ export async function POST(req: Request) {
       }
     }
 
-    // 🆕 Si hay actionResult, devolver como texto plano simple
+    // 🆕 Si hay actionResult, devolver en formato de stream compatible con Vercel AI SDK
     if (actionResult) {
-      console.log('✅✅✅ HAY ACTIONRESULT - DEVOLVIENDO TEXTO DIRECTO ✅✅✅');
+      console.log('✅✅✅ HAY ACTIONRESULT - DEVOLVIENDO STREAM COMPATIBLE ✅✅✅');
       console.log('📤 Contenido a enviar:', actionResult);
       console.log('📏 Longitud del contenido:', actionResult.length);
       
-      // Crear un stream simple de texto
+      // Crear un stream compatible con el formato esperado por useChat
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         start(controller) {
-          // Enviar todo el texto de una vez
-          controller.enqueue(encoder.encode(actionResult));
+          // Formato de Vercel AI SDK: cada chunk es "0:" seguido de JSON
+          const chunk = `0:${JSON.stringify(actionResult)}\n`;
+          controller.enqueue(encoder.encode(chunk));
           controller.close();
         }
       });
       
-      console.log('🔄 Stream creado, devolviendo como texto/plain');
+      console.log('🔄 Stream compatible creado');
       return new Response(stream, {
         headers: {
           'Content-Type': 'text/plain; charset=utf-8',
+          'X-Vercel-AI-Data-Stream': 'v1',
         },
       });
     }
