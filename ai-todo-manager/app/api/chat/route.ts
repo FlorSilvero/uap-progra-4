@@ -122,6 +122,11 @@ async function deleteTask(userId: string, taskIdentifier: string | number) {
 
 // 🆕 Función para editar título de tarea
 async function updateTaskTitle(userId: string, taskIdentifier: string | number, newTitle: string) {
+  return await updateTask(userId, taskIdentifier, { title: newTitle.trim() });
+}
+
+// 🆕 Función general para actualizar cualquier campo de una tarea
+async function updateTask(userId: string, taskIdentifier: string | number, updates: any) {
   // Si es un número, buscar por posición
   if (typeof taskIdentifier === 'number' || !isNaN(Number(taskIdentifier))) {
     const taskIndex = Number(taskIdentifier) - 1;
@@ -134,7 +139,7 @@ async function updateTaskTitle(userId: string, taskIdentifier: string | number, 
       const task = tasks[taskIndex];
       const updated = await prisma.task.update({
         where: { id: task.id },
-        data: { title: newTitle.trim() },
+        data: updates,
       });
       return updated;
     }
@@ -153,7 +158,7 @@ async function updateTaskTitle(userId: string, taskIdentifier: string | number, 
   if (tasks.length > 0) {
     const updated = await prisma.task.update({
       where: { id: tasks[0].id },
-      data: { title: newTitle.trim() },
+      data: updates,
     });
     return updated;
   }
@@ -328,57 +333,95 @@ export async function POST(req: Request) {
       }
     }
     
-    // 🆕 Detectar editar tarea
+    // 🆕 Detectar editar tarea (título, prioridad, estado)
     else if (lowerMessage.includes('editar') || lowerMessage.includes('modificar') || 
              lowerMessage.includes('cambiar') || lowerMessage.includes('actualizar') ||
              lowerMessage.includes('edita') || lowerMessage.includes('cambia')) {
       console.log('🔍 Detectado posible comando de editar tarea');
       
-      // Intentar extraer: número/texto de la tarea + nuevo título
-      // Patrón: "edita la tarea 1 a preparar mate" o "edita preparar mate en 1 hora y pon preparar mate"
-      const editPatterns = [
-        // "edita la tarea 1 y pon/a/por nuevo título"
-        /(editar|modificar|cambiar|edita|cambia)\s+(la\s+)?(tarea|recordatorio)?\s*(\d+)\s+(y\s+)?(pon|ahora\s+pon|pone|a|por|en)\s+(.+)/i,
-        // "edita preparar mate en 1 hora y pon preparar mate"
-        /(editar|modificar|cambiar|edita|cambia)\s+(la\s+)?(tarea|recordatorio)?\s+(de\s+)?(.+?)\s+(y\s+)?(pon|ahora\s+pon|pone|a|por)\s+(.+)/i,
-      ];
-      
+      // Extraer número de tarea
+      const numberMatch = lowerMessage.match(/\d+/);
       let taskIdentifier: string | number = '';
-      let newTitle = '';
-      let matched = false;
       
-      for (const pattern of editPatterns) {
-        const match = lastMessage.match(pattern);
-        if (match) {
-          if (match[4] && /^\d+$/.test(match[4])) {
-            // Patrón 1: con número
-            taskIdentifier = parseInt(match[4]);
-            newTitle = match[7];
-            matched = true;
-            console.log('🔢 Patrón con número - Tarea:', taskIdentifier, 'Nuevo título:', newTitle);
-          } else if (match[5] && match[8]) {
-            // Patrón 2: con texto
-            taskIdentifier = match[5].trim();
-            newTitle = match[8];
-            matched = true;
-            console.log('📝 Patrón con texto - Tarea:', taskIdentifier, 'Nuevo título:', newTitle);
-          }
-          break;
+      if (numberMatch) {
+        taskIdentifier = parseInt(numberMatch[0]);
+        console.log('🔢 Número detectado:', taskIdentifier);
+      } else {
+        // Buscar por texto en el mensaje
+        const textMatch = lastMessage.match(/(editar|modificar|cambiar|edita|cambia)\s+(la\s+)?(tarea|recordatorio)?\s+(de\s+)?(.+?)\s+(y\s+|a\s+|por\s+|en\s+)/i);
+        if (textMatch && textMatch[5]) {
+          taskIdentifier = textMatch[5].trim();
+          console.log('📝 Texto detectado:', taskIdentifier);
         }
       }
       
-      if (matched && newTitle) {
-        const task = await updateTaskTitle('demo-user', taskIdentifier, newTitle);
-        if (task) {
-          actionResult = `✏️ Tarea editada: "${task.title}"`;
-          console.log('✏️ Tarea editada exitosamente');
+      if (taskIdentifier) {
+        const updates: any = {};
+        let updateDescription = '';
+        
+        // Detectar cambio de prioridad
+        if (lowerMessage.includes('prioridad')) {
+          if (lowerMessage.includes('alta') || lowerMessage.includes('urgente') || lowerMessage.includes('importante') || lowerMessage.includes('high')) {
+            updates.priority = 'high';
+            updateDescription += 'prioridad a alta';
+          } else if (lowerMessage.includes('media') || lowerMessage.includes('normal') || lowerMessage.includes('medium')) {
+            updates.priority = 'medium';
+            updateDescription += 'prioridad a media';
+          } else if (lowerMessage.includes('baja') || lowerMessage.includes('low')) {
+            updates.priority = 'low';
+            updateDescription += 'prioridad a baja';
+          }
+        }
+        
+        // Detectar cambio de estado
+        if (lowerMessage.includes('estado') || lowerMessage.includes('marcar como')) {
+          if (lowerMessage.includes('completada') || lowerMessage.includes('terminada') || lowerMessage.includes('hecha') || lowerMessage.includes('finalizada')) {
+            updates.completed = true;
+            updateDescription += (updateDescription ? ', ' : '') + 'estado a completada';
+          } else if (lowerMessage.includes('pendiente') || lowerMessage.includes('incompleta') || lowerMessage.includes('sin completar')) {
+            updates.completed = false;
+            updateDescription += (updateDescription ? ', ' : '') + 'estado a pendiente';
+          }
+        }
+        
+        // Detectar cambio de título
+        const titlePatterns = [
+          /(pon|pone|título|titulo|nombre)\s+(.+)/i,
+          /(y\s+)?a\s+"([^"]+)"/i,
+          /(y\s+)?por\s+"([^"]+)"/i,
+        ];
+        
+        for (const pattern of titlePatterns) {
+          const match = lastMessage.match(pattern);
+          if (match && match[2]) {
+            let newTitle = match[2].trim();
+            // Limpiar palabras clave de la captura
+            newTitle = newTitle.replace(/(prioridad|estado|alta|media|baja|completada|pendiente|high|medium|low)/gi, '').trim();
+            if (newTitle && newTitle.length > 2) {
+              updates.title = newTitle;
+              updateDescription += (updateDescription ? ', ' : '') + `título a "${newTitle}"`;
+              break;
+            }
+          }
+        }
+        
+        if (Object.keys(updates).length > 0) {
+          console.log('🔧 Actualizaciones a aplicar:', updates);
+          const task = await updateTask('demo-user', taskIdentifier, updates);
+          if (task) {
+            actionResult = `✏️ Tarea actualizada (${updateDescription}): "${task.title}"`;
+            console.log('✏️ Tarea editada exitosamente');
+          } else {
+            actionResult = `❌ No encontré la tarea "${taskIdentifier}" para editar.`;
+            console.log('❌ No se encontró la tarea');
+          }
         } else {
-          actionResult = `❌ No encontré la tarea "${taskIdentifier}" para editar.`;
-          console.log('❌ No se encontró la tarea');
+          actionResult = `❓ Por favor especifica qué quieres editar. Ejemplos:\n- "edita la tarea 1 prioridad a alta"\n- "edita la tarea 2 estado a completada"\n- "edita la tarea 1 y pon nuevo título"`;
+          console.log('⚠️ No se detectaron campos a actualizar');
         }
       } else {
-        actionResult = `❓ Por favor usa el formato: "edita la tarea 1 y pon nuevo título" o "edita preparar mate y pon mate listo"`;
-        console.log('⚠️ No se pudo extraer información de edición');
+        actionResult = `❓ Por favor especifica el número de la tarea a editar.`;
+        console.log('⚠️ No se pudo extraer identificador de tarea');
       }
     }
     
