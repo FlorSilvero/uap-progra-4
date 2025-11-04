@@ -1,12 +1,16 @@
 // @ts-nocheck
 'use client';
 
-import { useChat } from 'ai/react';
+import { useChat } from '@ai-sdk/react';
 import { Send, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 
 export default function ChatInterface() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+  const [input, setInput] = useState('');
+  
+  const { messages, sendMessage, status, error } = useChat({
     api: '/api/chat',
+    initialMessages: [],
     onResponse: (response) => {
       console.log('📥 Respuesta recibida:', response);
     },
@@ -17,6 +21,24 @@ export default function ChatInterface() {
       console.error('❌ Error:', error);
     }
   });
+
+  const isLoading = status === 'in_progress';
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    
+    sendMessage({
+      role: 'user',
+      content: input,
+    });
+    
+    setInput('');
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -125,7 +147,7 @@ export default function ChatInterface() {
           <div className="flex gap-3">
             <input
               type="text"
-              value={input}
+              value={input ?? ''}
               onChange={handleInputChange}
               placeholder="Escribe tu mensaje... Ej: 'Agregar tarea: llamar al doctor'"
               className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -133,7 +155,7 @@ export default function ChatInterface() {
             />
             <button
               type="submit"
-              disabled={isLoading || !input.trim()}
+              disabled={isLoading || !input?.trim()}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               {isLoading ? (
