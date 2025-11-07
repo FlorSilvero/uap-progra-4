@@ -14,11 +14,12 @@ interface UpdateTaskBody {
 // GET /api/tasks/[id] - Obtener tarea específica
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const task = await prisma.task.findUnique({
-      where: { id: params.id, deletedAt: null },
+      where: { id, deletedAt: null },
     });
 
     if (!task) {
@@ -41,14 +42,15 @@ export async function GET(
 // PATCH /api/tasks/[id] - Actualizar tarea
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const body: UpdateTaskBody = await request.json();
 
     // Verificar que la tarea existe
     const existingTask = await prisma.task.findUnique({
-      where: { id: params.id, deletedAt: null },
+      where: { id, deletedAt: null },
     });
 
     if (!existingTask) {
@@ -96,7 +98,7 @@ export async function PATCH(
     }
 
     const task = await prisma.task.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
     });
 
@@ -113,12 +115,13 @@ export async function PATCH(
 // DELETE /api/tasks/[id] - Eliminar tarea (soft delete)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     // Verificar que la tarea existe
     const existingTask = await prisma.task.findUnique({
-      where: { id: params.id, deletedAt: null },
+      where: { id, deletedAt: null },
     });
 
     if (!existingTask) {
@@ -130,7 +133,7 @@ export async function DELETE(
 
     // Soft delete: marcar como eliminada
     const task = await prisma.task.update({
-      where: { id: params.id },
+      where: { id },
       data: { deletedAt: new Date() },
     });
 
