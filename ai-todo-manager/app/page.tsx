@@ -50,7 +50,23 @@ export default function ChatPage() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Read server error body (if any) and show it to the user instead of throwing a generic error
+        let errText = `HTTP ${response.status}`;
+        try {
+          errText = await response.text();
+        } catch (e) {
+          // ignore
+        }
+        console.error('Server returned error:', errText);
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantMessageId
+              ? { ...m, content: `Error del servidor: ${errText}` }
+              : m
+          )
+        );
+        setIsLoading(false);
+        return;
       }
 
       const reader = response.body?.getReader();
