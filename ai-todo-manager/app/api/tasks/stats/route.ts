@@ -220,6 +220,87 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Productivity stats
+    const completedTasksList = await prisma.task.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+        completed: true,
+      },
+      select: {
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // Average completion time
+    let averageCompletionTime = 'N/D';
+    if (completedTasksList.length > 0) {
+      const totalMs = completedTasksList.reduce(
+        (acc, task) => acc + (task.updatedAt.getTime() - task.createdAt.getTime()),
+        0
+      );
+      const avgMs = totalMs / completedTasksList.length;
+      const avgHours = Math.round(avgMs / 3600000);
+      averageCompletionTime = `${avgHours}h`;
+    }
+
+    // Current streak and longest streak
+    const last30Days = await prisma.task.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+        completed: true,
+        updatedAt: { gte: new Date(Date.now() - 30 * 86400000) },
+      },
+      select: { updatedAt: true },
+    });
+
+    const daysWithCompletions = new Set(
+      last30Days.map(t => {
+        const d = new Date(t.updatedAt);
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      })
+    );
+
+    // Calculate current streak
+    let currentStreak = 0;
+    let cursorDate = new Date();
+    cursorDate.setHours(0, 0, 0, 0);
+    while (daysWithCompletions.has(cursorDate.getTime())) {
+      currentStreak++;
+      cursorDate = new Date(cursorDate.getTime() - 86400000);
+    }
+
+    // Calculate longest streak in last 30 days
+    let longestStreak = 0;
+    let tempStreak = 0;
+    let iterDate = new Date();
+    iterDate.setHours(0, 0, 0, 0);
+    for (let i = 0; i < 30; i++) {
+      const dayKey = new Date(
+        iterDate.getFullYear(),
+        iterDate.getMonth(),
+        iterDate.getDate()
+      ).getTime();
+      if (daysWithCompletions.has(dayKey)) {
+        tempStreak++;
+        longestStreak = Math.max(longestStreak, tempStreak);
+      } else {
+        tempStreak = 0;
+      }
+      iterDate = new Date(iterDate.getTime() - 86400000);
+    }
+
+    // Most productive day (day with most completions)
+    const dayCounts: Record<string, number> = {};
+    last30Days.forEach(task => {
+      const dayStr = task.updatedAt.toISOString().slice(0, 10);
+      dayCounts[dayStr] = (dayCounts[dayStr] || 0) + 1;
+    });
+    const mostProductiveDay =
+      Object.entries(dayCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
     const stats = {
       summary: {
         totalTasks,
@@ -235,6 +316,12 @@ export async function GET(request: NextRequest) {
         tasksCompletedToday,
         tasksCreatedThisWeek,
         tasksCompletedThisWeek,
+      },
+      productivity: {
+        averageCompletionTime,
+        mostProductiveDay,
+        currentStreak,
+        longestStreak,
       },
       upcoming: {
         dueTodayCount,
