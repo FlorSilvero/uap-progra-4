@@ -3,7 +3,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest } from 'next/server';
 import { streamText, tool } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
 import { openai } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { z } from 'zod';
@@ -44,40 +43,23 @@ const google = createGoogleGenerativeAI({
   apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '',
 });
 
-// Groq client using AI SDK for tool-calling support
-// Note: Groq uses OpenAI-compatible API but with different endpoint structure
-const groq = createOpenAI({
-  apiKey: process.env.GROQ_API_KEY || '',
-  baseURL: 'https://api.groq.com/openai/v1',
-  compatibility: 'compatible', // Use 'compatible' instead of 'strict' for Groq
-});
-
-const USE_GROQ = !!process.env.GROQ_API_KEY;
-
 const MODEL = USE_GOOGLE
   ? (process.env.GOOGLE_MODEL || 'models/gemini-1.5-flash')
-  : USE_GROQ
-  ? (process.env.GROQ_MODEL || 'llama-3.3-70b-versatile')
   : USE_DIRECT_OPENAI 
   ? (process.env.OPENAI_MODEL || 'gpt-4o-mini')
   : (process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini');
 
 const fallbackModel = USE_GOOGLE
   ? 'models/gemini-1.5-flash'
-  : USE_GROQ
-  ? 'llama-3.1-8b-instant'
   : USE_DIRECT_OPENAI
   ? 'gpt-3.5-turbo'
   : (process.env.OPENROUTER_TOOL_FALLBACK_MODEL || 'openai/gpt-3.5-turbo');
 
-// Helper to get the model provider (Google, Groq, direct OpenAI, or OpenRouter-wrapped)
+// Helper to get the model provider (Google, direct OpenAI, or OpenRouter-wrapped)
 const getModel = (modelName: string) => {
   if (USE_GOOGLE) {
     // Use Google Gemini via AI SDK (excellent tool-calling support)
     return google(modelName);
-  } else if (USE_GROQ) {
-    // Use Groq via AI SDK (supports tool-calling)
-    return groq(modelName);
   } else if (USE_DIRECT_OPENAI) {
     // Use native OpenAI SDK (no schema wrapping issues)
     return openai(modelName);
@@ -401,9 +383,9 @@ export async function POST(req: NextRequest) {
     if (!rl.allowed) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded', retryAfter: rl.retryAfter }), { status: 429, headers: { 'Content-Type': 'application/json' } });
     }
-    if (!USE_GOOGLE && !USE_DIRECT_OPENAI && !process.env.OPENROUTER_API_KEY && !process.env.GROQ_API_KEY) {
+    if (!USE_GOOGLE && !USE_DIRECT_OPENAI && !process.env.OPENROUTER_API_KEY) {
       return new Response(
-        JSON.stringify({ error: 'GOOGLE_GENERATIVE_AI_API_KEY, OPENAI_API_KEY, GROQ_API_KEY or OPENROUTER_API_KEY is missing on server. Configure .env.local' }),
+        JSON.stringify({ error: 'GOOGLE_GENERATIVE_AI_API_KEY, OPENAI_API_KEY or OPENROUTER_API_KEY is missing on server. Configure .env.local' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -497,17 +479,17 @@ export async function POST(req: NextRequest) {
   const toolCallCounter = { count: 0 };
   const boundTools = buildTools(userId, toolCallCounter);
 
-  // Use AI SDK streamText with tools (works for Groq, OpenAI, OpenRouter)
-  // Note: Groq's tool-calling implementation may stop after executing tools (finishReason 'tool-calls').
-  // For Groq we run an initial pass to execute tools and collect results, then make a second
-  // call with tool outputs appended so the model can produce the final assistant reply.
+  // Use AI SDK streamText with tools (works for Google, OpenAI, OpenRouter)
+  // Note: Google's tool-calling implementation may stop after executing tools.
+  // For Google we run an initial pass to execute tools and collect results, then make a second
+  // call with tool outputs to generate the final natural language response.
   try {
     const selectedModel = getModel(MODEL);
     console.log('🚀 Using AI SDK with tool-calling, model:', MODEL);
 
-    // Manual continuation for Google/Groq (both need second call after tool execution)
-    if (USE_GOOGLE || USE_GROQ) {
-      console.log('🔄 Using manual continuation for', USE_GOOGLE ? 'Google' : 'Groq');
+    // Manual continuation for Google (needs second call after tool execution)
+    if (USE_GOOGLE) {
+      console.log('🔄 Using manual continuation for Google');
       
       // First call: execute tools
       const firstStream = streamText({
@@ -642,28 +624,6 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     console.error('❌ AI SDK error:', error);
     const err = error as Error;
-    
-    // Check if it's a Groq 500 error
-    const isGroq500 = err.message.includes('500') && USE_GROQ;
-    
-    if (isGroq500) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Servicio temporalmente no disponible',
-          details: 'Groq (api.groq.com) está experimentando problemas técnicos. Este es un error de su infraestructura (Cloudflare), no de tu aplicación.',
-          suggestions: [
-            '1. Esperá 5-10 minutos y reintentá',
-            '2. Verificá el status en https://status.groq.com/',
-            '3. O configurá OPENROUTER_API_KEY como alternativa (https://openrouter.ai/keys)',
-          ],
-          timestamp: new Date().toISOString(),
-        }),
-        { 
-          status: 503,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
-    }
     
     return new Response(
       JSON.stringify({ 
