@@ -135,42 +135,62 @@ export default function ChatPage() {
   }, [messages, isLoading]);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      <header className="bg-white border-b px-6 py-4">
-        <h1 className="text-2xl font-bold">AI Todo Manager</h1>
+    <div className="flex flex-col h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 px-6 py-5 shadow-sm">
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          AI Todo Manager ✨
+        </h1>
       </header>
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
         {loadingHistory && (
-          <div className="flex justify-center items-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-            <span className="ml-2 text-gray-500">Cargando historial...</span>
+          <div className="flex justify-center items-center py-12">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              <span className="text-sm text-gray-500 font-medium">Cargando historial...</span>
+            </div>
           </div>
         )}
         {!loadingHistory && messages.length === 0 && (
-          <div className="flex justify-center items-center py-8 text-gray-400">
-            No hay mensajes. ¡Empieza una conversación!
+          <div className="flex flex-col justify-center items-center py-16 text-center">
+            <div className="text-6xl mb-4">💬</div>
+            <p className="text-gray-400 text-lg font-medium">No hay mensajes aún</p>
+            <p className="text-gray-300 text-sm mt-2">¡Empieza una conversación!</p>
           </div>
         )}
         {messages.map((m) => (
-          <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] rounded-lg px-4 py-3 ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white border'}`}>
-              <div className="whitespace-pre-wrap">{m.content}</div>
+          <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+            <div className={`max-w-[80%] rounded-2xl px-5 py-3 shadow-sm ${
+              m.role === 'user' 
+                ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white' 
+                : 'bg-white border border-gray-200'
+            }`}>
+              <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
             </div>
           </div>
         ))}
-        {isLoading && <div className="flex justify-start"><div className="bg-white border rounded-lg px-4 py-3"><Loader2 className="w-4 h-4 animate-spin" /></div></div>}
+        {isLoading && (
+          <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="bg-white border border-gray-200 rounded-2xl px-5 py-3 shadow-sm">
+              <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+            </div>
+          </div>
+        )}
       </div>
-      <div className="border-t bg-white px-6 py-4">
-        <form onSubmit={(e) => { e.preventDefault(); sendMessage(input); }} className="flex gap-3">
+      <div className="border-t border-gray-200 bg-white/80 backdrop-blur-sm px-6 py-5 shadow-lg">
+        <form onSubmit={(e) => { e.preventDefault(); sendMessage(input); }} className="flex gap-3 max-w-4xl mx-auto">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Escribe tu mensaje..."
-            className="flex-1 px-4 py-3 border rounded-lg"
+            className="flex-1 px-5 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             disabled={isLoading}
           />
-          <button type="submit" disabled={isLoading || !input.trim()} className="px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-50">
+          <button 
+            type="submit" 
+            disabled={isLoading || !input.trim()} 
+            className="px-7 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg active:scale-95"
+          >
             {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
           </button>
         </form>
