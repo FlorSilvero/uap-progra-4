@@ -10,6 +10,46 @@ import { prisma } from '@/lib/prisma';
 import { getUserIdFromRequest } from '@/lib/user-context';
 import { rateLimit } from '@/lib/rate-limit';
 
+// Helper para guardar mensajes en la BD
+async function saveMessage(userId: string, role: 'user' | 'assistant', content: string, toolCalls?: any) {
+  try {
+    // Buscar o crear conversación activa para el usuario
+    let conversation = await prisma.conversation.findFirst({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          userId,
+          title: content.slice(0, 50) // Título del primer mensaje
+        }
+      });
+    }
+
+    // Guardar mensaje
+    await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role,
+        content,
+        toolCalls: toolCalls ? JSON.stringify(toolCalls) : null
+      }
+    });
+
+    // Actualizar timestamp de la conversación
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { updatedAt: new Date() }
+    });
+
+  } catch (error) {
+    console.error('Error saving message:', error);
+    // No bloqueamos el flujo si falla guardar
+  }
+}
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -426,6 +466,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Guardar el mensaje del usuario en la BD
+    const lastUserMessage = normalizedMessages[normalizedMessages.length - 1];
+    if (lastUserMessage?.role === 'user' && lastUserMessage.content) {
+      await saveMessage(userId, 'user', lastUserMessage.content);
+    }
+
     // Debug: log normalized messages to help troubleshoot intent detection issues
     try { console.log('🔍 normalizedMessages:', JSON.stringify(normalizedMessages)); } catch (e) { /* ignore */ }
 
@@ -602,6 +648,10 @@ export async function POST(req: NextRequest) {
       return finalResult.toTextStreamResponse();
     }
 
+    // Variables para acumular la respuesta completa del asistente
+    let fullText = '';
+    let allToolCalls: any[] = [];
+
     const result = streamText({
       model: selectedModel,
       system: systemPrompt,
@@ -617,6 +667,19 @@ export async function POST(req: NextRequest) {
           finishReason: event.finishReason,
           text: event.text?.slice(0, 100) || '(no text)',
         });
+        
+        // Acumular texto y tool calls
+        if (event.text) fullText += event.text;
+        if (event.toolCalls) allToolCalls.push(...event.toolCalls);
+      },
+      onFinish: async (event) => {
+        // Guardar respuesta del asistente cuando termine el streaming
+        const assistantContent = event.text || fullText;
+        const toolInvocations = allToolCalls.length > 0 ? allToolCalls : undefined;
+        
+        if (assistantContent || toolInvocations) {
+          await saveMessage(userId, 'assistant', assistantContent, toolInvocations);
+        }
       },
     });
 

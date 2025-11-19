@@ -2,7 +2,7 @@
 'use client';
 
 import { Send, Loader2 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 
 type Message = {
   id: string;
@@ -14,6 +14,28 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  // Cargar historial de conversación al iniciar
+  useEffect(() => {
+    async function loadHistory() {
+      try {
+        const response = await fetch('/api/conversations');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.messages && data.messages.length > 0) {
+            setMessages(data.messages);
+            console.log(`📚 Cargados ${data.messages.length} mensajes del historial`);
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando historial:', error);
+      } finally {
+        setLoadingHistory(false);
+      }
+    }
+    loadHistory();
+  }, []);
 
   const sendMessage = useCallback(async (textToSend: string) => {
     if (!textToSend.trim() || isLoading) return;
@@ -118,6 +140,17 @@ export default function ChatPage() {
         <h1 className="text-2xl font-bold">AI Todo Manager</h1>
       </header>
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        {loadingHistory && (
+          <div className="flex justify-center items-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-500">Cargando historial...</span>
+          </div>
+        )}
+        {!loadingHistory && messages.length === 0 && (
+          <div className="flex justify-center items-center py-8 text-gray-400">
+            No hay mensajes. ¡Empieza una conversación!
+          </div>
+        )}
         {messages.map((m) => (
           <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[80%] rounded-lg px-4 py-3 ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white border'}`}>
